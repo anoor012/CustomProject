@@ -8,6 +8,7 @@
  *	I acknowledge all content contained herein, excluding template or example
  *	code, is my own original work.
  */
+#include <avr/eeprom.h>
 #include <avr/io.h>
 #include <io.h>
 #include <scheduler.h>
@@ -22,6 +23,7 @@ enum ChooseStates{wait2, init2};
 enum Level2States{wait3, init3};
 unsigned char gameStart = 0x00;
 unsigned char level = 0x00;
+uint8_t levelsDone;
 unsigned char Special[8] = { 0x01, 0x03, 0x07, 0x0D, 0x0F, 0x02, 0x05, 0x0A };
 unsigned char Special2[8] = { 0x04, 0x1F, 0x11, 0x11, 0x1F, 0x1F, 0x1F, 0x1F };
 #define temp (~PINA & 0x01)
@@ -30,6 +32,11 @@ unsigned char Special2[8] = { 0x04, 0x1F, 0x11, 0x11, 0x1F, 0x1F, 0x1F, 0x1F };
 //unsigned char i = 0x00; //Time of game
 //unsigned char begun = 0x00;
 
+
+void SetHighScore() {
+	eeprom_write_byte((uint8_t*)15, 1);
+	levelsDone = eeprom_read_byte((uint8_t*)15);
+}
 
 
 int LCDTick(int state) {
@@ -73,12 +80,14 @@ int LCDTick(int state) {
 		case wait :
 			gameStart = 0x00;
 			LCD_ClearScreen();
-			LCD_DisplayString(1, "Start Game (B1) High Score: ");
+			LCD_DisplayString(1, "Start Game (B1) Levels Done: ");
 			//calls function
 			LCD_Special_Char(0, Special);
 			//LCD_Special_Char(1, Special2);
 			LCD_Cursor(0x10);
 			LCD_WriteData(0x00);
+			LCD_Cursor(0x1D);
+			LCD_WriteData(levelsDone + '0');
 			break;
 		case begin :
 			LCD_ClearScreen();
@@ -202,7 +211,7 @@ int level2tick(int state) {
 			break;
 		case init3 :
 			LCD_ClearScreen();
-			LCD_DisplayString(2, "Level 2 Started!");
+			LCD_DisplayString(1, "Level 2 Started!");
 			break;
 		default :
 			break;
@@ -218,6 +227,7 @@ int main(void) {
 	DDRC = 0xFF; PORTC = 0x00;
 	DDRD = 0xFF; PORTD = 0x00;
     /* Insert your solution below */
+	SetHighScore();
 	LCD_init();
 	static task task_1;
 	static task task_2;
