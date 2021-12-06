@@ -17,7 +17,7 @@
 #include "simAVRHeader.h"
 #endif
 
-enum LCDStates{start1, wait, begin, begin_wait};
+enum LCDStates{start1, wait, begin, begin_wait, begin_wait2};
 enum Level1States{wait1, init1};
 enum ChooseStates{wait2, init2};
 enum Level2States{wait3, init3};
@@ -26,18 +26,48 @@ unsigned char level = 0x00;
 uint8_t levelsDone;
 unsigned char Special[8] = { 0x01, 0x03, 0x07, 0x0D, 0x0F, 0x02, 0x05, 0x0A };
 unsigned char Special2[8] = { 0x04, 0x1F, 0x11, 0x11, 0x1F, 0x1F, 0x1F, 0x1F };
-#define temp (~PINA & 0x01)
-#define temp1 (~PINA & 0x02)
-#define temp2 (~PINA & 0x04)
+#define temp (~PINA & 0x08)
+#define temp1 (~PINA & 0x10)
+#define temp2 (~PINA & 0x20)
 //unsigned char i = 0x00; //Time of game
 //unsigned char begun = 0x00;
-
+unsigned char pos = 0x00;
 
 void SetHighScore() {
 	eeprom_write_byte((uint8_t*)15, 1);
 	levelsDone = eeprom_read_byte((uint8_t*)15);
 }
 
+void InitADC(void) {
+	ADMUX |= (1<<REFS0);
+	ADCSRA |= (1<<ADPS1)|(1<<ADPS0)|(1<<ADEN);
+}
+
+uint16_t ReadADC(uint8_t ADCchannel) {
+	ADMUX = (ADMUX & 0xF0) | (ADCchannel & 0x0F);
+	ADCSRA |= (1<<ADSC);
+	while(ADCSRA & (1<<ADSC));
+	return ADC;
+}
+
+int joystick() {
+	
+	int position;
+	unsigned short x;
+	x = ReadADC(1);
+
+	if(x >= 600) {
+		position = 1;
+	}
+	else if(x <= 500) {
+		position = 2;
+	}
+	else {
+		position = 0;
+	}
+
+	return position;
+}
 
 int LCDTick(int state) {
 	switch(state) {
@@ -68,7 +98,15 @@ int LCDTick(int state) {
 				state = wait;
 			}
 			else {
-				state = begin_wait;
+				state = begin_wait2;
+			}
+			break;
+		case begin_wait2 :
+			if(temp1) {
+				state = wait;
+			}
+			else {
+				state = begin_wait2;
 			}
 			break;
 		default :
@@ -95,14 +133,17 @@ int LCDTick(int state) {
 		case begin_wait :
 			if(level == 0x00) {
 				gameStart = 0x01;
-				LCD_DisplayString(2, "Level 1 (B1)    Level 2 (B3)");
+				LCD_DisplayString(2, "Level 1 (B1)    Level 2 (B1)");
 				LCD_Special_Char(0, Special);
 				LCD_Special_Char(1, Special2);
 				LCD_Cursor(0x01);
 				LCD_WriteData(0x00);
 				LCD_Cursor(0x11);
 				LCD_WriteData(0x01);
+				LCD_Cursor(0x01);
 			}
+			break;
+		case begin_wait2 :
 			break;
 		default :
 			break;
@@ -110,13 +151,15 @@ int LCDTick(int state) {
 	return state;
 }
 
+unsigned int current = 1;
+
 int chooseTick (int state) {
 	switch(state) {
 		case wait1 :
 			if(gameStart == 0x01) {
 				state = init1;
 			}
-			else {
+			else if(temp1) {
 				state = wait1;
 			}
 			break;
@@ -136,12 +179,25 @@ int chooseTick (int state) {
 			level = 0;
 			break;
 		case init1 :
-			if(temp) {
+			pos = joystick();
+
+			if(pos == 1 && current == 1) {
+				current += 16;
+			}
+			else if(pos == 2 && current == 17) {
+				current -= 16;
+			}
+
+			LCD_Cursor(current);
+			delay_ms(250);
+
+			if(temp && current == 1) {
 				level = 0x01;
 			}
-			else if(temp2) {
+			else if(temp && current == 17) {
 				level = 0x02;
 			}
+
 			break;
 		default :
 			break;
@@ -229,6 +285,7 @@ int main(void) {
     /* Insert your solution below */
 	SetHighScore();
 	LCD_init();
+	InitADC();
 	static task task_1;
 	static task task_2;
 	static task task_3;
