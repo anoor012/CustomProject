@@ -33,10 +33,18 @@ unsigned char Special2[8] = { 0x04, 0x1F, 0x11, 0x11, 0x1F, 0x1F, 0x1F, 0x1F };
 //unsigned char begun = 0x00;
 unsigned char pos = 0x00;
 
-void SetHighScore() {
-	eeprom_write_byte((uint8_t*)15, 1);
-	levelsDone = eeprom_read_byte((uint8_t*)15);
+void eepromWrite(unsigned char addr, unsigned char data) {
+	eeprom_write_byte(addr, data);
 }
+
+unsigned char eepromRead(unsigned char addr) {
+	return eeprom_read_byte(addr);
+}
+
+//void SetHighScore() {
+//	eeprom_write_byte((uint8_t*)15, 1);
+//	levelsDone = eeprom_read_byte((uint8_t*)15);
+//}
 
 void InitADC(void) {
 	ADMUX |= (1<<REFS0);
@@ -125,6 +133,7 @@ int LCDTick(int state) {
 			LCD_Cursor(0x10);
 			LCD_WriteData(0x00);
 			LCD_Cursor(0x1D);
+			levelsDone = eepromRead(0x00);
 			LCD_WriteData(levelsDone + '0');
 			break;
 		case begin :
@@ -192,9 +201,11 @@ int chooseTick (int state) {
 			delay_ms(250);
 
 			if(temp && current == 1) {
+				eepromWrite(0x00, 1);
 				level = 0x01;
 			}
 			else if(temp && current == 17) {
+				eepromWrite(0x00, 2);
 				level = 0x02;
 			}
 
@@ -283,7 +294,7 @@ int main(void) {
 	DDRC = 0xFF; PORTC = 0x00;
 	DDRD = 0xFF; PORTD = 0x00;
     /* Insert your solution below */
-	SetHighScore();
+//	SetHighScore();
 	LCD_init();
 	InitADC();
 	static task task_1;
